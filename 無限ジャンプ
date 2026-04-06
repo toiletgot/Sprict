@@ -1,0 +1,132 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local infiniteJumpEnabled = false
+
+-- GUI作成
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- メインフレーム（ドラッグ可能）
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0,220,0,80)
+mainFrame.Position = UDim2.new(0,15,0,80)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0,10)
+frameCorner.Parent = mainFrame
+
+-- ジャンプボタン
+local jumpButton = Instance.new("TextButton")
+jumpButton.Size = UDim2.new(0,100,0,35)
+jumpButton.Position = UDim2.new(0,10,0,35)
+jumpButton.Text = "Jump: OFF"
+jumpButton.TextScaled = true
+jumpButton.BackgroundColor3 = Color3.fromRGB(180,0,0)
+jumpButton.TextColor3 = Color3.new(1,1,1)
+jumpButton.BorderSizePixel = 0
+jumpButton.Parent = mainFrame
+
+local jumpCorner = Instance.new("UICorner")
+jumpCorner.CornerRadius = UDim.new(0,8)
+jumpCorner.Parent = jumpButton
+
+-- バツボタン
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0,25,0,25)
+closeButton.Position = UDim2.new(1,-30,0,5)
+closeButton.Text = "❌"
+closeButton.TextScaled = true
+closeButton.BackgroundColor3 = Color3.fromRGB(255,50,50)
+closeButton.TextColor3 = Color3.new(1,1,1)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0,6)
+closeCorner.Parent = closeButton
+
+-- ジャンプON/OFF
+jumpButton.MouseButton1Click:Connect(function()
+	infiniteJumpEnabled = not infiniteJumpEnabled
+	if infiniteJumpEnabled then
+		jumpButton.Text = "Jump: ON"
+		jumpButton.BackgroundColor3 = Color3.fromRGB(0,170,0)
+	else
+		jumpButton.Text = "Jump: OFF"
+		jumpButton.BackgroundColor3 = Color3.fromRGB(180,0,0)
+	end
+end)
+
+-- 無限ジャンプ
+local jumpConnection
+jumpConnection = UserInputService.JumpRequest:Connect(function()
+	if infiniteJumpEnabled and player.Character then
+		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end
+end)
+
+-- ドラッグ処理（フレーム全体）
+local dragging = false
+local dragStart
+local frameStart
+
+local function startDrag(input)
+	dragging = true
+	dragStart = input.Position
+	frameStart = mainFrame.Position
+end
+
+local function stopDrag()
+	dragging = false
+end
+
+local function dragMoved(input)
+	if dragging then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(
+			frameStart.X.Scale,
+			frameStart.X.Offset + delta.X,
+			frameStart.Y.Scale,
+			frameStart.Y.Offset + delta.Y
+		)
+	end
+end
+
+-- マウス・タッチ開始
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		startDrag(input)
+	end
+end)
+
+-- マウス・タッチ終了
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		stopDrag()
+	end
+end)
+
+-- マウス・タッチ移動
+UserInputService.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragMoved(input)
+	end
+end)
+
+-- バツボタンで完全終了
+closeButton.MouseButton1Click:Connect(function()
+	if jumpConnection then
+		jumpConnection:Disconnect()
+		jumpConnection = nil
+	end
+	dragging = false
+	screenGui:Destroy()
+end)
