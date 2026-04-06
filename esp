@@ -1,0 +1,235 @@
+-- Face ESP 最終完成版
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+
+local ESPEnabled = false
+local Closed = false
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.CoreGui
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0,120,0,50)
+Frame.Position = UDim2.new(1,-130,0,20)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Frame.Parent = ScreenGui
+
+-- ドラッグバー
+local DragBar = Instance.new("Frame")
+DragBar.Size = UDim2.new(1,0,0,12)
+DragBar.BackgroundColor3 = Color3.fromRGB(80,80,80)
+DragBar.Parent = Frame
+DragBar.Active = true
+Frame.Active = true
+
+local Line = Instance.new("TextLabel")
+Line.Size = UDim2.new(1,0,1,0)
+Line.BackgroundTransparency = 1
+Line.Text = "≡"
+Line.TextColor3 = Color3.fromRGB(200,200,200)
+Line.TextScaled = true
+Line.Parent = DragBar
+
+-- ボタン
+local Button = Instance.new("TextButton")
+Button.Size = UDim2.new(0.7,0,0.75,0)
+Button.Position = UDim2.new(0,0,0.25,0)
+Button.Text = "ESP OFF"
+Button.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Button.TextColor3 = Color3.fromRGB(255,255,255)
+Button.Parent = Frame
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0.3,0,0.75,0)
+Close.Position = UDim2.new(0.7,0,0.25,0)
+Close.Text = "×"
+Close.BackgroundColor3 = Color3.fromRGB(120,30,30)
+Close.TextColor3 = Color3.fromRGB(255,255,255)
+Close.Parent = Frame
+
+-- ESP作成
+local function createESP(player)
+	if player == LocalPlayer or Closed then return end
+	
+	local function add(character)
+		if Closed then return end
+		
+		local head = character:WaitForChild("Head")
+
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "FaceESP"
+		gui.Adornee = head
+		gui.Size = UDim2.new(0,100,0,100)
+		gui.StudsOffset = Vector3.new(0,2,0)
+		gui.AlwaysOnTop = true
+		gui.Enabled = ESPEnabled
+		gui.Parent = head
+
+		local image = Instance.new("ImageLabel")
+		image.Size = UDim2.new(0,50,0,50)
+		image.Position = UDim2.new(0.25,0,0,0)
+		image.BackgroundTransparency = 1
+		image.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..player.UserId.."&width=420&height=420&format=png"
+		image.Parent = gui
+
+		local name = Instance.new("TextLabel")
+		name.Size = UDim2.new(1,0,0,30)
+		name.Position = UDim2.new(0,0,0.6,0)
+		name.BackgroundTransparency = 1
+		name.Text = player.Name
+		name.TextColor3 = Color3.fromRGB(255,255,255)
+		name.TextScaled = true
+		name.Parent = gui
+
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "FaceESPHighlight"
+		highlight.FillTransparency = 1
+		highlight.OutlineColor = Color3.fromRGB(255,0,0)
+		highlight.Enabled = ESPEnabled
+		highlight.Parent = character
+	end
+
+	if player.Character then
+		add(player.Character)
+	end
+
+	player.CharacterAdded:Connect(add)
+end
+
+-- 初期
+for _,p in pairs(Players:GetPlayers()) do
+	createESP(p)
+end
+Players.PlayerAdded:Connect(createESP)
+
+-- ON/OFF
+Button.MouseButton1Click:Connect(function()
+	if Closed then return end
+	
+	ESPEnabled = not ESPEnabled
+	Button.Text = ESPEnabled and "ESP ON" or "ESP OFF"
+
+	for _,player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local head = player.Character:FindFirstChild("Head")
+			if head and head:FindFirstChild("FaceESP") then
+				head.FaceESP.Enabled = ESPEnabled
+			end
+			
+			local highlight = player.Character:FindFirstChild("FaceESPHighlight")
+			if highlight then
+				highlight.Enabled = ESPEnabled
+			end
+		end
+	end
+end)
+
+-- 完全終了
+Close.MouseButton1Click:Connect(function()
+	Closed = true
+	
+	for _,player in pairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local head = player.Character:FindFirstChild("Head")
+			if head and head:FindFirstChild("FaceESP") then
+				head.FaceESP:Destroy()
+			end
+			
+			local highlight = player.Character:FindFirstChild("FaceESPHighlight")
+			if highlight then
+				highlight:Destroy()
+			end
+		end
+	end
+	
+	ScreenGui:Destroy()
+end)
+
+-- ===== 最強ドラッグ =====
+local dragging = false
+local velocity = Vector2.new(0,0)
+local lastPos = nil
+local lastTime = tick()
+
+local function getScreenSize()
+	return workspace.CurrentCamera.ViewportSize
+end
+
+DragBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch 
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		
+		dragging = true
+		lastPos = input.Position
+		velocity = Vector2.new(0,0)
+		lastTime = tick()
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if dragging and (
+		input.UserInputType == Enum.UserInputType.Touch 
+		or input.UserInputType == Enum.UserInputType.MouseMovement) then
+		
+		local now = tick()
+		local delta = input.Position - lastPos
+		local dt = math.max(now - lastTime, 0.016)
+
+		velocity = delta / dt
+		lastPos = input.Position
+		lastTime = now
+
+		Frame.Position = UDim2.new(
+			Frame.Position.X.Scale,
+			Frame.Position.X.Offset + delta.X,
+			Frame.Position.Y.Scale,
+			Frame.Position.Y.Offset + delta.Y
+		)
+	end
+end)
+
+UIS.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch 
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
+
+RunService.RenderStepped:Connect(function(dt)
+	if Closed then return end
+	
+	if not dragging then
+		if velocity.Magnitude > 1 then
+			Frame.Position = UDim2.new(
+				Frame.Position.X.Scale,
+				Frame.Position.X.Offset + velocity.X * dt,
+				Frame.Position.Y.Scale,
+				Frame.Position.Y.Offset + velocity.Y * dt
+			)
+			velocity = velocity * 0.9
+		end
+
+		local screen = getScreenSize()
+		local x = Frame.Position.X.Offset
+		local y = Frame.Position.Y.Offset
+
+		local snap = 30
+
+		if x < snap then x = 0 end
+		if x > screen.X - Frame.AbsoluteSize.X - snap then
+			x = screen.X - Frame.AbsoluteSize.X
+		end
+
+		if y < snap then y = 0 end
+		if y > screen.Y - Frame.AbsoluteSize.Y - snap then
+			y = screen.Y - Frame.AbsoluteSize.Y
+		end
+
+		Frame.Position = UDim2.new(0,x,0,y)
+	end
+end)
