@@ -1,0 +1,167 @@
+local player = game.Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+-- 既存削除
+local old = player:WaitForChild("PlayerGui"):FindFirstChild("SpeedGui")
+if old then old:Destroy() end
+
+-- GUI
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "SpeedGui"
+gui.ResetOnSpawn = false
+
+-- メイン（ドラッグ＋開閉）
+local main = Instance.new("TextButton")
+main.Size = UDim2.new(0,80,0,40)
+main.Position = UDim2.new(1,-90,0,20)
+main.Text = "⚡"
+main.TextScaled = true
+main.BackgroundColor3 = Color3.fromRGB(255,80,80)
+main.Active = true
+main.Draggable = true
+main.Parent = gui
+
+-- パネル
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,120,0,180)
+frame.Position = UDim2.new(1,-130,0,70)
+frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+frame.Visible = false
+frame.Parent = gui
+
+-- ＋
+local plus = Instance.new("TextButton")
+plus.Size = UDim2.new(1,0,0,30)
+plus.Position = UDim2.new(0,0,0,0)
+plus.Text = "+"
+plus.TextScaled = true
+plus.Parent = frame
+
+-- －
+local minus = Instance.new("TextButton")
+minus.Size = UDim2.new(1,0,0,30)
+minus.Position = UDim2.new(0,0,0,35)
+minus.Text = "-"
+minus.TextScaled = true
+minus.Parent = frame
+
+-- ダッシュ
+local dash = Instance.new("TextButton")
+dash.Size = UDim2.new(1,0,0,30)
+dash.Position = UDim2.new(0,0,0,70)
+dash.Text = "DASH"
+dash.TextScaled = true
+dash.Parent = frame
+
+-- RESET（通常速度）
+local reset = Instance.new("TextButton")
+reset.Size = UDim2.new(1,0,0,30)
+reset.Position = UDim2.new(0,0,0,105)
+reset.Text = "RESET"
+reset.TextScaled = true
+reset.BackgroundColor3 = Color3.fromRGB(80,200,255)
+reset.Parent = frame
+
+-- ×削除（完全終了）
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(1,0,0,30)
+close.Position = UDim2.new(0,0,0,140)
+close.Text = "✖"
+close.TextScaled = true
+close.BackgroundColor3 = Color3.fromRGB(255,80,80)
+close.Parent = frame
+
+-- 設定
+local speed = 2
+local min = 0.5
+local max = 6
+local isOn = true
+local isDash = false
+
+-- 開閉
+main.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
+end)
+
+-- ＋
+plus.MouseButton1Click:Connect(function()
+	speed = math.clamp(speed + 0.5, min, max)
+end)
+
+-- －
+minus.MouseButton1Click:Connect(function()
+	speed = math.clamp(speed - 0.5, min, max)
+end)
+
+-- ダッシュ
+dash.MouseButton1Down:Connect(function()
+	isDash = true
+end)
+dash.MouseButton1Up:Connect(function()
+	isDash = false
+end)
+
+-- RESET（通常に戻す）
+reset.MouseButton1Click:Connect(function()
+	speed = 0
+	isDash = false
+end)
+
+-- ×（完全終了）
+close.MouseButton1Click:Connect(function()
+	isOn = false
+	isDash = false
+	speed = 0
+	
+	-- 通常速度に戻す
+	if player.Character then
+		local hum = player.Character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.WalkSpeed = 16
+		end
+	end
+	
+	gui:Destroy()
+end)
+
+-- PCダッシュ
+UIS.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		isDash = true
+	end
+end)
+UIS.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		isDash = false
+	end
+end)
+
+-- ゴムバンド軽減
+local function anti()
+	if speed > 4 then
+		speed = speed - 0.03
+	end
+end
+
+-- メイン処理
+RunService.RenderStepped:Connect(function()
+	if isOn and player.Character then
+		local char = player.Character
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local root = char:FindFirstChild("HumanoidRootPart")
+		
+		if hum and root then
+			local dir = hum.MoveDirection
+			if dir.Magnitude > 0 then
+				local final = speed
+				if isDash then
+					final = final * 2
+				end
+				root.CFrame = root.CFrame + (dir * final)
+			end
+		end
+		
+		anti()
+	end
+end)
