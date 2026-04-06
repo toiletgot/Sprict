@@ -1,0 +1,207 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local distance = 5
+local speed = 5
+local jumping = false
+
+local direction = 1
+local moved = 0
+
+local moveConnection
+local startCFrame = rootPart.CFrame -- 元の位置保存
+
+-- GUI
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0,140,0,240)
+frame.Position = UDim2.new(1,-160,0,20)
+frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+
+-- 閉じる（完全停止）
+local close = Instance.new("TextButton", frame)
+close.Size = UDim2.new(0,20,0,20)
+close.Position = UDim2.new(1,-22,0,0)
+close.Text = "X"
+close.TextSize = 12
+close.BackgroundColor3 = Color3.fromRGB(150,50,50)
+
+-- ドラッグ
+local drag = Instance.new("TextButton", frame)
+drag.Size = UDim2.new(1,-22,0,20)
+drag.Text = "移動"
+drag.TextSize = 12
+drag.BackgroundColor3 = Color3.fromRGB(60,60,60)
+
+-- ON/OFF
+local toggle = Instance.new("TextButton", frame)
+toggle.Size = UDim2.new(1,-10,0,25)
+toggle.Position = UDim2.new(0,5,0,25)
+toggle.Text = "横OFF"
+toggle.TextSize = 12
+
+-- 戻るボタン
+local reset = Instance.new("TextButton", frame)
+reset.Size = UDim2.new(1,-10,0,25)
+reset.Position = UDim2.new(0,5,0,55)
+reset.Text = "位置リセット"
+reset.TextSize = 12
+
+-- 距離
+local distBox = Instance.new("TextBox", frame)
+distBox.Size = UDim2.new(1,-10,0,25)
+distBox.Position = UDim2.new(0,5,0,85)
+distBox.Text = tostring(distance)
+distBox.TextSize = 12
+
+local distMinus = Instance.new("TextButton", frame)
+distMinus.Size = UDim2.new(0.5,-7,0,25)
+distMinus.Position = UDim2.new(0,5,0,110)
+distMinus.Text = "-"
+
+local distPlus = Instance.new("TextButton", frame)
+distPlus.Size = UDim2.new(0.5,-7,0,25)
+distPlus.Position = UDim2.new(0.5,2,0,110)
+distPlus.Text = "+"
+
+-- 速さ
+local speedBox = Instance.new("TextBox", frame)
+speedBox.Size = UDim2.new(1,-10,0,25)
+speedBox.Position = UDim2.new(0,5,0,135)
+speedBox.Text = tostring(speed)
+speedBox.TextSize = 12
+
+local speedMinus = Instance.new("TextButton", frame)
+speedMinus.Size = UDim2.new(0.5,-7,0,25)
+speedMinus.Position = UDim2.new(0,5,0,160)
+speedMinus.Text = "-"
+
+local speedPlus = Instance.new("TextButton", frame)
+speedPlus.Size = UDim2.new(0.5,-7,0,25)
+speedPlus.Position = UDim2.new(0.5,2,0,160)
+speedPlus.Text = "+"
+
+-- 入力反映
+distBox.FocusLost:Connect(function()
+	local num = tonumber(distBox.Text)
+	if num then distance = math.abs(num) end
+	distBox.Text = tostring(distance)
+end)
+
+speedBox.FocusLost:Connect(function()
+	local num = tonumber(speedBox.Text)
+	if num then speed = math.abs(num) end
+	speedBox.Text = tostring(speed)
+end)
+
+-- ±
+distMinus.MouseButton1Click:Connect(function()
+	distance = math.max(0,distance-1)
+	distBox.Text = tostring(distance)
+end)
+
+distPlus.MouseButton1Click:Connect(function()
+	distance += 1
+	distBox.Text = tostring(distance)
+end)
+
+speedMinus.MouseButton1Click:Connect(function()
+	speed = math.max(0,speed-1)
+	speedBox.Text = tostring(speed)
+end)
+
+speedPlus.MouseButton1Click:Connect(function()
+	speed += 1
+	speedBox.Text = tostring(speed)
+end)
+
+-- 横移動（安全版）
+local function startMove()
+	if moveConnection then moveConnection:Disconnect() end
+	
+	moveConnection = RunService.RenderStepped:Connect(function(dt)
+		if jumping then
+			local moveAmount = speed * dt
+			rootPart.CFrame = rootPart.CFrame * CFrame.new(moveAmount * direction,0,0)
+			moved += moveAmount
+			
+			if moved >= distance then
+				moved = 0
+				direction *= -1
+			end
+		end
+	end)
+end
+
+-- トグル
+toggle.MouseButton1Click:Connect(function()
+	jumping = not jumping
+	toggle.Text = jumping and "横ON" or "横OFF"
+	moved = 0
+	direction = 1
+	
+	if jumping then
+		startMove()
+	else
+		if moveConnection then
+			moveConnection:Disconnect()
+		end
+	end
+end)
+
+-- 位置リセット
+reset.MouseButton1Click:Connect(function()
+	rootPart.CFrame = startCFrame
+	rootPart.Velocity = Vector3.zero
+end)
+
+-- ❌ バツ（完全停止）
+close.MouseButton1Click:Connect(function()
+	jumping = false
+	
+	if moveConnection then
+		moveConnection:Disconnect()
+	end
+	
+	rootPart.Velocity = Vector3.zero
+	gui:Destroy()
+end)
+
+-- ドラッグ
+local dragging = false
+local dragStart, startPos
+
+drag.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+	or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+	or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
