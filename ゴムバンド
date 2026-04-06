@@ -1,0 +1,103 @@
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+local enabled = false
+local interval = 0.5 -- 戻る間隔
+local lastPosition = hrp.Position
+
+-- UI作成
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- メインフレーム（ドラッグ可能）
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 160, 0, 120)
+mainFrame.Position = UDim2.new(0, 50, 0, 50)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.Parent = screenGui
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.BorderSizePixel = 0
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.ClipsDescendants = true
+
+-- ON/OFF ボタン
+local toggle = Instance.new("TextButton")
+toggle.Size = UDim2.new(0, 120, 0, 40)
+toggle.Position = UDim2.new(0, 10, 0, 10)
+toggle.Text = "RB: OFF"
+toggle.Parent = mainFrame
+toggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggle.Font = Enum.Font.SourceSansBold
+toggle.TextSize = 18
+
+-- プラス・マイナス
+local plus = Instance.new("TextButton")
+plus.Size = UDim2.new(0, 50, 0, 30)
+plus.Position = UDim2.new(0, 10, 0, 60)
+plus.Text = "+"
+plus.Parent = mainFrame
+plus.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+plus.TextColor3 = Color3.fromRGB(255, 255, 255)
+plus.Font = Enum.Font.SourceSansBold
+plus.TextSize = 18
+
+local minus = Instance.new("TextButton")
+minus.Size = UDim2.new(0, 50, 0, 30)
+minus.Position = UDim2.new(0, 100, 0, 60)
+minus.Text = "-"
+minus.Parent = mainFrame
+minus.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+minus.TextColor3 = Color3.fromRGB(255, 255, 255)
+minus.Font = Enum.Font.SourceSansBold
+minus.TextSize = 18
+
+-- ❌ボタン（小さくして右上に配置）
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 20, 0, 20)
+closeBtn.Position = UDim2.new(1, -25, 0, 5)
+closeBtn.Text = "❌"
+closeBtn.Parent = mainFrame
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 14
+
+-- ON/OFF
+toggle.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    toggle.Text = enabled and "RB: ON" or "RB: OFF"
+end)
+
+-- 強さ調整
+plus.MouseButton1Click:Connect(function()
+    interval = interval + 0.1
+end)
+
+minus.MouseButton1Click:Connect(function()
+    interval = math.max(0.1, interval - 0.1)
+end)
+
+-- 終了処理
+local running = true
+closeBtn.MouseButton1Click:Connect(function()
+    running = false
+    screenGui:Destroy()
+end)
+
+-- ゴムバンド処理
+task.spawn(function()
+    while running do
+        if enabled then
+            lastPosition = hrp.Position
+            task.wait(interval)
+            hrp.CFrame = CFrame.new(lastPosition)
+        else
+            task.wait(0.1)
+        end
+    end
+end)
