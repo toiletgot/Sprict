@@ -1,0 +1,180 @@
+--// 目で追うスクリプト（極小UI対応・完全終了）
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local targetPlayer
+local tracking = false
+local playerButtons = {}
+local connections = {}
+
+-- UI作成
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.CoreGui
+
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 100, 0, 160)
+Frame.Position = UDim2.new(1, -110, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+
+-- ×ボタン（完全終了）
+local CloseButton = Instance.new("TextButton", Frame)
+CloseButton.Size = UDim2.new(0,16,0,16)
+CloseButton.Position = UDim2.new(1,-18,0,2)
+CloseButton.Text = "×"
+CloseButton.TextSize = 11
+CloseButton.BackgroundColor3 = Color3.fromRGB(120,0,0)
+CloseButton.TextColor3 = Color3.new(1,1,1)
+
+CloseButton.MouseButton1Click:Connect(function()
+	tracking=false
+	for _,con in pairs(connections) do
+		if con.Connected then con:Disconnect() end
+	end
+	ScreenGui:Destroy()
+end)
+
+-- ➖ボタン（極小UI化）
+local MinimizeButton = Instance.new("TextButton", Frame)
+MinimizeButton.Size = UDim2.new(0,16,0,16)
+MinimizeButton.Position = UDim2.new(1,-36,0,2)
+MinimizeButton.Text = "➖"
+MinimizeButton.TextSize = 11
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(80,80,80)
+MinimizeButton.TextColor3 = Color3.new(1,1,1)
+
+local minimized = false
+local originalFrameSize = Frame.Size
+local originalScrollSize = UDim2.new(1,-4,1,-36)
+local originalTogglePos, originalToggleSize
+
+-- ドラッグバー
+local DragBar = Instance.new("TextButton", Frame)
+DragBar.Size = UDim2.new(1,-40,0,14)
+DragBar.Position = UDim2.new(0,2,0,2)
+DragBar.Text = LocalPlayer.Name
+DragBar.TextSize = 9
+DragBar.BackgroundColor3 = Color3.fromRGB(60,60,60)
+DragBar.TextColor3 = Color3.new(1,1,1)
+
+local dragging, dragStart, startPos = false
+DragBar.InputBegan:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+		dragging=true
+		dragStart=input.Position
+		startPos=Frame.Position
+	end
+end)
+
+connections[#connections+1] = UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset+delta.X, startPos.Y.Scale, startPos.Y.Offset+delta.Y)
+	end
+end)
+
+connections[#connections+1] = UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+		dragging=false
+	end
+end)
+
+-- ON/OFFボタン
+local ToggleButton = Instance.new("TextButton", Frame)
+ToggleButton.Size = UDim2.new(1,-4,0,16)
+ToggleButton.Position = UDim2.new(0,2,0,18)
+ToggleButton.Text = "追跡OFF"
+ToggleButton.TextSize = 10
+ToggleButton.BackgroundColor3 = Color3.fromRGB(80,0,0)
+ToggleButton.TextColor3 = Color3.new(1,1,1)
+
+ToggleButton.MouseButton1Click:Connect(function()
+	tracking = not tracking
+	if tracking then
+		ToggleButton.Text = "追跡ON"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(0,80,0)
+	else
+		ToggleButton.Text = "追跡OFF"
+		ToggleButton.BackgroundColor3 = Color3.fromRGB(80,0,0)
+	end
+end)
+
+-- プレイヤー一覧
+local ScrollFrame = Instance.new("ScrollingFrame", Frame)
+ScrollFrame.Size = originalScrollSize
+ScrollFrame.Position = UDim2.new(0,2,0,34)
+ScrollFrame.ScrollBarThickness = 3
+ScrollFrame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+
+local UIListLayout = Instance.new("UIListLayout", ScrollFrame)
+UIListLayout.Padding = UDim.new(0,1)
+
+local function updateColors()
+	for plr,btn in pairs(playerButtons) do
+		btn.BackgroundColor3 = (plr==targetPlayer) and Color3.fromRGB(0,120,0) or Color3.fromRGB(50,50,50)
+	end
+end
+
+local function createButtons()
+	for _,v in pairs(ScrollFrame:GetChildren()) do
+		if v:IsA("TextButton") then v:Destroy() end
+	end
+	playerButtons={}
+	for _,plr in pairs(Players:GetPlayers()) do
+		if plr~=LocalPlayer then
+			local btn = Instance.new("TextButton", ScrollFrame)
+			btn.Size = UDim2.new(1,-2,0,14)
+			btn.Text = plr.Name
+			btn.TextSize = 9
+			btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+			btn.TextColor3 = Color3.new(1,1,1)
+
+			playerButtons[plr] = btn
+
+			btn.MouseButton1Click:Connect(function()
+				targetPlayer = plr
+				updateColors()
+			end)
+		end
+	end
+
+	task.wait()
+	ScrollFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y+2)
+end
+
+createButtons()
+
+connections[#connections+1] = Players.PlayerAdded:Connect(function()
+	task.wait(1)
+	createButtons()
+end)
+
+connections[#connections+1] = Players.PlayerRemoving:Connect(function()
+	task.wait(1)
+	createButtons()
+end)
+
+MinimizeButton.MouseButton1Click:Connect(function()
+	if not minimized then
+		Frame.Size = UDim2.new(0,60,0,20)
+		ScrollFrame.Visible = false
+		ToggleButton.Visible = false
+		minimized = true
+	else
+		Frame.Size = originalFrameSize
+		ScrollFrame.Visible = true
+		ToggleButton.Visible = true
+		minimized = false
+	end
+end)
+
+connections[#connections+1] = RunService.RenderStepped:Connect(function()
+	if tracking and targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local targetPos = targetPlayer.Character.HumanoidRootPart.Position
+		local myPos = Camera.CFrame.Position
+		Camera.CFrame = CFrame.new(myPos,targetPos)
+	end
+end)
