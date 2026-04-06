@@ -1,0 +1,271 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local lp = Players.LocalPlayer
+local char = lp.Character or lp.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+local DISTANCE = 3
+local HEIGHT = 0
+local SPEED = 0.05
+
+local target = nil
+local enabled = false
+local ghostMode = false
+local angle = 0
+
+local gui = Instance.new("ScreenGui",lp.PlayerGui)
+gui.ResetOnSpawn=false
+
+local frame = Instance.new("Frame",gui)
+frame.Size = UDim2.new(0,90,0,240)
+frame.Position = UDim2.new(0,5,0.5,-120)
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+
+local top = Instance.new("TextButton",frame)
+top.Size = UDim2.new(1,0,0,16)
+top.Text = lp.Name
+top.TextSize = 12
+top.BackgroundColor3 = Color3.fromRGB(35,35,35)
+top.TextColor3 = Color3.new(1,1,1)
+
+local close = Instance.new("TextButton",frame)
+close.Size = UDim2.new(0,14,0,14)
+close.Position = UDim2.new(1,-15,0,1)
+close.Text="X"
+close.TextSize=10
+close.BackgroundColor3 = Color3.fromRGB(200,0,0)
+close.TextColor3 = Color3.new(1,1,1)
+
+close.MouseButton1Click:Connect(function()
+	gui:Destroy()
+end)
+
+local dragging=false
+local dragStart,startPos
+
+top.InputBegan:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.Touch then
+		dragging=true
+		dragStart=i.Position
+		startPos=frame.Position
+	end
+end)
+
+UIS.InputChanged:Connect(function(i)
+	if dragging then
+		local delta=i.Position-dragStart
+		frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y)
+	end
+end)
+
+UIS.InputEnded:Connect(function()
+	dragging=false
+end)
+
+local scroll = Instance.new("ScrollingFrame",frame)
+scroll.Size = UDim2.new(1,0,1,-16)
+scroll.Position = UDim2.new(0,0,0,16)
+scroll.BackgroundTransparency=1
+scroll.ScrollBarThickness=3
+
+local layout = Instance.new("UIListLayout",scroll)
+layout.Padding = UDim.new(0,2)
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	scroll.CanvasSize=UDim2.new(0,0,0,layout.AbsoluteContentSize.Y+5)
+end)
+
+local toggle = Instance.new("TextButton",scroll)
+toggle.Size = UDim2.new(1,-4,0,16)
+toggle.Text="OFF"
+toggle.TextSize=11
+toggle.BackgroundColor3=Color3.fromRGB(120,0,0)
+toggle.TextColor3=Color3.new(1,1,1)
+
+toggle.MouseButton1Click:Connect(function()
+	enabled=not enabled
+	if enabled then
+		toggle.Text="ON"
+		toggle.BackgroundColor3=Color3.fromRGB(0,140,0)
+	else
+		toggle.Text="OFF"
+		toggle.BackgroundColor3=Color3.fromRGB(120,0,0)
+	end
+end)
+
+local ghostBtn = Instance.new("TextButton",scroll)
+ghostBtn.Size = UDim2.new(1,-4,0,16)
+ghostBtn.Text="GHOST OFF"
+ghostBtn.TextSize=11
+ghostBtn.BackgroundColor3=Color3.fromRGB(60,0,60)
+ghostBtn.TextColor3=Color3.new(1,1,1)
+
+ghostBtn.MouseButton1Click:Connect(function()
+	ghostMode=not ghostMode
+	if ghostMode then
+		ghostBtn.Text="GHOST ON"
+		ghostBtn.BackgroundColor3=Color3.fromRGB(140,0,140)
+	else
+		ghostBtn.Text="GHOST OFF"
+		ghostBtn.BackgroundColor3=Color3.fromRGB(60,0,60)
+	end
+end)
+
+local function adjust(name,get,set)
+	local f=Instance.new("Frame",scroll)
+	f.Size=UDim2.new(1,-4,0,16)
+	f.BackgroundTransparency=1
+	
+	local minus=Instance.new("TextButton",f)
+	minus.Size=UDim2.new(0.3,0,1,0)
+	minus.Text="-"
+	minus.TextSize=11
+	minus.BackgroundColor3=Color3.fromRGB(50,50,50)
+	minus.TextColor3=Color3.new(1,1,1)
+	
+	local label=Instance.new("TextLabel",f)
+	label.Size=UDim2.new(0.4,0,1,0)
+	label.Position=UDim2.new(0.3,0,0,0)
+	label.BackgroundTransparency=1
+	label.TextSize=11
+	label.TextColor3=Color3.new(1,1,1)
+	label.Text=name.." "..get()
+	
+	local plus=Instance.new("TextButton",f)
+	plus.Size=UDim2.new(0.3,0,1,0)
+	plus.Position=UDim2.new(0.7,0,0,0)
+	plus.Text="+"
+	plus.TextSize=11
+	plus.BackgroundColor3=Color3.fromRGB(50,50,50)
+	plus.TextColor3=Color3.new(1,1,1)
+	
+	minus.MouseButton1Click:Connect(function()
+		set(get()-1)
+		label.Text=name.." "..get()
+	end)
+	
+	plus.MouseButton1Click:Connect(function()
+		set(get()+1)
+		label.Text=name.." "..get()
+	end)
+end
+
+adjust("D",function()return DISTANCE end,function(v)DISTANCE=v end)
+adjust("H",function()return HEIGHT end,function(v)HEIGHT=v end)
+
+local speedFrame = Instance.new("Frame",scroll)
+speedFrame.Size = UDim2.new(1,-4,0,16)
+speedFrame.BackgroundTransparency = 1
+
+local minus = Instance.new("TextButton",speedFrame)
+minus.Size = UDim2.new(0.3,0,1,0)
+minus.Text = "-"
+minus.TextSize = 11
+minus.BackgroundColor3 = Color3.fromRGB(50,50,50)
+minus.TextColor3 = Color3.new(1,1,1)
+
+local label = Instance.new("TextLabel",speedFrame)
+label.Size = UDim2.new(0.4,0,1,0)
+label.Position = UDim2.new(0.3,0,0,0)
+label.BackgroundTransparency = 1
+label.TextSize = 11
+label.TextColor3 = Color3.new(1,1,1)
+label.Text = "S "..string.format("%.2f", SPEED)
+
+local plus = Instance.new("TextButton",speedFrame)
+plus.Size = UDim2.new(0.3,0,1,0)
+plus.Position = UDim2.new(0.7,0,0,0)
+plus.Text = "+"
+plus.TextSize = 11
+plus.BackgroundColor3 = Color3.fromRGB(50,50,50)
+plus.TextColor3 = Color3.new(1,1,1)
+
+local holdMinus=false
+local holdPlus=false
+
+minus.MouseButton1Down:Connect(function() holdMinus=true end)
+minus.MouseButton1Up:Connect(function() holdMinus=false end)
+
+plus.MouseButton1Down:Connect(function() holdPlus=true end)
+plus.MouseButton1Up:Connect(function() holdPlus=false end)
+
+task.spawn(function()
+	while true do
+		task.wait(0.05)
+
+		if holdMinus then
+			SPEED -= 0.01
+			if SPEED < 0.01 then SPEED = 0.01 end
+			label.Text = "S "..string.format("%.2f", SPEED)
+		end
+
+		if holdPlus then
+			SPEED += 0.01
+			label.Text = "S "..string.format("%.2f", SPEED)
+		end
+	end
+end)
+
+local function refresh()
+	for _,v in pairs(scroll:GetChildren()) do
+		if v:IsA("TextButton") and v~=toggle and v~=ghostBtn then
+			if v.Text~="+" and v.Text~="-" then
+				v:Destroy()
+			end
+		end
+	end
+
+	for _,p in pairs(Players:GetPlayers()) do
+		if p~=lp then
+			local b=Instance.new("TextButton",scroll)
+			b.Size=UDim2.new(1,-4,0,14)
+			b.Text=p.Name
+			b.TextSize=10
+			b.BackgroundColor3=Color3.fromRGB(40,40,40)
+			b.TextColor3=Color3.new(1,1,1)
+
+			b.MouseButton1Click:Connect(function()
+				target=p
+				for _,x in pairs(scroll:GetChildren()) do
+					if x:IsA("TextButton") then
+						x.BackgroundColor3=Color3.fromRGB(40,40,40)
+					end
+				end
+				b.BackgroundColor3=Color3.fromRGB(0,170,0)
+			end)
+		end
+	end
+end
+
+refresh()
+Players.PlayerAdded:Connect(refresh)
+Players.PlayerRemoving:Connect(refresh)
+
+RunService.RenderStepped:Connect(function()
+	if enabled and target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+	
+		local thrp = target.Character.HumanoidRootPart
+		
+		if ghostMode then
+			angle += SPEED
+			local x = math.cos(angle) * DISTANCE
+			local z = math.sin(angle) * DISTANCE
+			local pos = thrp.Position + Vector3.new(x, HEIGHT, z)
+			hrp.CFrame = CFrame.new(pos, thrp.Position)
+		else
+			local pos =
+				thrp.Position
+				- thrp.CFrame.LookVector * DISTANCE
+				+ Vector3.new(0, HEIGHT, 0)
+			hrp.CFrame = CFrame.new(pos, thrp.Position)
+		end
+	
+	end
+end)
+
+lp.CharacterAdded:Connect(function(c)
+	char=c
+	hrp=c:WaitForChild("HumanoidRootPart")
+end)
