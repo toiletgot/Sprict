@@ -1,0 +1,115 @@
+local player = game.Players.LocalPlayer
+local isOn = false
+local jumpPower = 90 -- 初期ジャンプ力
+
+-- UI作成
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0,140,0,90)
+frame.Position = UDim2.new(0.5,-70,0.1,0)
+frame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+-- ON/OFFボタン
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0,50,0,30)
+toggleButton.Position = UDim2.new(0,5,0,5)
+toggleButton.TextScaled = true
+toggleButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+toggleButton.Text = "OFF"
+toggleButton.Parent = frame
+
+toggleButton.MouseButton1Click:Connect(function()
+	isOn = not isOn
+	if isOn then
+		toggleButton.Text = "ON"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(0,200,0)
+	else
+		toggleButton.Text = "OFF"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+	end
+end)
+
+-- バツボタン（❌）でUI削除
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0,30,0,30)
+closeButton.Position = UDim2.new(1,-35,0,5)
+closeButton.Text = "❌"
+closeButton.TextScaled = true
+closeButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
+closeButton.Parent = frame
+
+closeButton.MouseButton1Click:Connect(function()
+	isOn = false
+	screenGui:Destroy() -- UIごと削除
+end)
+
+-- ジャンプ力入力
+local inputBox = Instance.new("TextBox")
+inputBox.Size = UDim2.new(0,50,0,25)
+inputBox.Position = UDim2.new(0,5,0,40)
+inputBox.Text = tostring(jumpPower)
+inputBox.TextScaled = true
+inputBox.ClearTextOnFocus = false
+inputBox.BackgroundColor3 = Color3.fromRGB(100,100,100)
+inputBox.Parent = frame
+
+inputBox.FocusLost:Connect(function()
+	local value = tonumber(inputBox.Text)
+	if value then
+		jumpPower = math.max(value, 10) -- 下限10
+		inputBox.Text = tostring(jumpPower)
+	else
+		inputBox.Text = tostring(jumpPower)
+	end
+end)
+
+-- ＋ボタン
+local plusButton = Instance.new("TextButton")
+plusButton.Size = UDim2.new(0,25,0,25)
+plusButton.Position = UDim2.new(0,60,0,40)
+plusButton.Text = "+"
+plusButton.TextScaled = true
+plusButton.BackgroundColor3 = Color3.fromRGB(0,150,0)
+plusButton.Parent = frame
+
+plusButton.MouseButton1Click:Connect(function()
+	jumpPower = jumpPower + 10
+	inputBox.Text = tostring(jumpPower)
+end)
+
+-- －ボタン
+local minusButton = Instance.new("TextButton")
+minusButton.Size = UDim2.new(0,25,0,25)
+minusButton.Position = UDim2.new(0,90,0,40)
+minusButton.Text = "−"
+minusButton.TextScaled = true
+minusButton.BackgroundColor3 = Color3.fromRGB(150,0,0)
+minusButton.Parent = frame
+
+minusButton.MouseButton1Click:Connect(function()
+	jumpPower = math.max(jumpPower - 10, 10)
+	inputBox.Text = tostring(jumpPower)
+end)
+
+-- キャラ設定
+local function setupCharacter(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local root = character:WaitForChild("HumanoidRootPart")
+
+	humanoid.StateChanged:Connect(function(_, new)
+		if new == Enum.HumanoidStateType.Jumping and isOn then
+			root.Velocity = Vector3.new(0, jumpPower, 0)
+		end
+	end)
+end
+
+if player.Character then
+	setupCharacter(player.Character)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
