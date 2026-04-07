@@ -1,0 +1,120 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ScreenGui作成
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = playerGui
+
+-- メインフレーム
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 50)
+frame.Position = UDim2.new(1, -190, 0, 10)
+frame.AnchorPoint = Vector2.new(1, 0)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+frame.ClipsDescendants = true
+
+-- ON/OFFボタン
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 100, 1, 0)
+toggleButton.Position = UDim2.new(0, 0, 0, 0)
+toggleButton.Text = "壁スケ OFF"
+toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleButton.BorderSizePixel = 0
+toggleButton.Parent = frame
+
+-- バツボタン
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 50, 1, 0)
+closeButton.Position = UDim2.new(1, -50, 0, 0)
+closeButton.AnchorPoint = Vector2.new(0, 0)
+closeButton.Text = "❌"
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = frame
+
+-- ドラッグボタン
+local dragButton = Instance.new("TextButton")
+dragButton.Size = UDim2.new(0, 30, 1, 0)
+dragButton.Position = UDim2.new(1, -80, 0, 0)
+dragButton.AnchorPoint = Vector2.new(0, 0)
+dragButton.Text = "⇅"
+dragButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+dragButton.BorderSizePixel = 0
+dragButton.Parent = frame
+
+-- 壁透過用
+local enabled = false
+local original = {}
+
+toggleButton.MouseButton1Click:Connect(function()
+    enabled = not enabled
+    toggleButton.Text = enabled and "壁スケ ON" or "壁スケ OFF"
+
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            if enabled then
+                if original[obj] == nil then
+                    original[obj] = obj.Transparency
+                end
+                if obj.Transparency < 0.8 then
+                    obj.Transparency = 0.7
+                end
+            else
+                if original[obj] ~= nil then
+                    obj.Transparency = original[obj]
+                end
+            end
+        end
+    end
+end)
+
+-- バツボタンで終了
+closeButton.MouseButton1Click:Connect(function()
+    for obj, trans in pairs(original) do
+        if obj and obj.Parent then
+            obj.Transparency = trans
+        end
+    end
+    original = {}
+    screenGui:Destroy()
+end)
+
+-- ドラッグ処理（ドラッグボタン専用）
+local dragging = false
+local dragInput, dragStart, startPos
+
+dragButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+dragButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
