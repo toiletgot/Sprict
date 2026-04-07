@@ -1,0 +1,104 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- 設定
+local sensitivity = 0.35
+local distance = 12
+local height = 2
+
+local yaw = 0
+local pitch = -10
+local enabled = false
+
+-- UI
+local gui = Instance.new("ScreenGui")
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- ONOFFボタン
+local toggle = Instance.new("TextButton")
+toggle.Parent = gui
+toggle.Size = UDim2.new(0,80,0,30)
+toggle.Position = UDim2.new(0,10,1,-90)
+toggle.Text = "OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(120,0,0)
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.TextScaled = true
+
+-- 感度入力
+local box = Instance.new("TextBox")
+box.Parent = gui
+box.Size = UDim2.new(0,90,0,35)
+box.Position = UDim2.new(0,10,1,-50)
+box.BackgroundColor3 = Color3.fromRGB(30,30,30)
+box.TextColor3 = Color3.new(1,1,1)
+box.TextScaled = true
+box.Text = tostring(sensitivity)
+box.ClearTextOnFocus = false
+
+box.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		local num = tonumber(box.Text)
+		if num then
+			sensitivity = num
+		end
+		box.Text = tostring(sensitivity)
+	end
+end)
+
+-- ON/OFF切り替え
+toggle.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	
+	if enabled then
+		toggle.Text = "ON"
+		toggle.BackgroundColor3 = Color3.fromRGB(0,120,0)
+	else
+		toggle.Text = "OFF"
+		toggle.BackgroundColor3 = Color3.fromRGB(120,0,0)
+		camera.CameraType = Enum.CameraType.Custom
+	end
+end)
+
+-- 操作（タッチ）
+UserInputService.InputChanged:Connect(function(input)
+	if enabled and input.UserInputType == Enum.UserInputType.Touch then
+		yaw -= input.Delta.X * sensitivity
+		pitch -= input.Delta.Y * sensitivity
+	end
+end)
+
+-- カメラ更新（ここが重要）
+RunService.RenderStepped:Connect(function()
+	if not enabled then return end
+	
+	-- 毎フレーム強制的に固定（これでOFFに戻らない）
+	camera.CameraType = Enum.CameraType.Scriptable
+	
+	local character = player.Character
+	if not character then return end
+	
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	
+	local focus = root.Position + Vector3.new(0,height,0)
+
+	local rotation =
+		CFrame.Angles(0, math.rad(yaw), 0) *
+		CFrame.Angles(math.rad(pitch), 0, 0)
+
+	local offset = rotation:VectorToWorldSpace(Vector3.new(0,0,distance))
+
+	camera.CFrame = CFrame.new(focus + offset, focus)
+end)
+
+-- リスポーン対策
+player.CharacterAdded:Connect(function()
+	if enabled then
+		camera.CameraType = Enum.CameraType.Scriptable
+	end
+end)
