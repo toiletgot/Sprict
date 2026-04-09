@@ -1,0 +1,188 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+-- 設定
+local triggerDistance = 10
+local behindOffset = 3
+local cooldown = 1
+local lastUsed = 0
+
+local enabled = false
+local running = true
+
+--================ UI =================--
+
+local gui = Instance.new("ScreenGui")
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 220, 0, 180)
+frame.Position = UDim2.new(0.5, -110, 0.7, 0)
+frame.BackgroundColor3 = Color3.fromRGB(40,40,40)
+frame.Parent = gui
+
+local dragBar = Instance.new("TextButton")
+dragBar.Size = UDim2.new(1, 0, 0, 30)
+dragBar.BackgroundColor3 = Color3.fromRGB(30,30,30)
+dragBar.Text = "DRAG"
+dragBar.TextColor3 = Color3.new(1,1,1)
+dragBar.Parent = frame
+
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 30, 0, 30)
+close.Position = UDim2.new(1, -30, 0, 0)
+close.Text = "X"
+close.BackgroundColor3 = Color3.fromRGB(200,50,50)
+close.Parent = dragBar
+
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(0, 140, 0, 40)
+button.Position = UDim2.new(0, 10, 0, 45)
+button.Text = "OFF"
+button.BackgroundColor3 = Color3.fromRGB(200,50,50)
+button.Parent = frame
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(0, 140, 0, 30)
+label.Position = UDim2.new(0, 10, 0, 90)
+label.Text = "Range: "..triggerDistance
+label.BackgroundTransparency = 1
+label.TextColor3 = Color3.new(1,1,1)
+label.Parent = frame
+
+local plus = Instance.new("TextButton")
+plus.Size = UDim2.new(0, 40, 0, 40)
+plus.Position = UDim2.new(1, -50, 0, 45)
+plus.Text = "+"
+plus.Parent = frame
+
+local minus = Instance.new("TextButton")
+minus.Size = UDim2.new(0, 40, 0, 40)
+minus.Position = UDim2.new(1, -50, 0, 90)
+minus.Text = "-"
+minus.Parent = frame
+
+local cooldownLabel = Instance.new("TextLabel")
+cooldownLabel.Size = UDim2.new(0, 140, 0, 30)
+cooldownLabel.Position = UDim2.new(0, 10, 0, 135)
+cooldownLabel.Text = "CD: "..cooldown.."s"
+cooldownLabel.BackgroundTransparency = 1
+cooldownLabel.TextColor3 = Color3.new(1,1,1)
+cooldownLabel.Parent = frame
+
+local cdPlus = Instance.new("TextButton")
+cdPlus.Size = UDim2.new(0, 40, 0, 40)
+cdPlus.Position = UDim2.new(1, -50, 0, 135)
+cdPlus.Text = "+S"
+cdPlus.Parent = frame
+
+local cdMinus = Instance.new("TextButton")
+cdMinus.Size = UDim2.new(0, 20, 0, 40)
+cdMinus.Position = UDim2.new(1, -75, 0, 135)
+cdMinus.Text = "-S"
+cdMinus.Parent = frame
+
+--================ ドラッグ処理 =================--
+
+local dragging = false
+local dragStart, startPos
+
+dragBar.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+UIS.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+	end
+end)
+
+--================ ボタン =================--
+
+button.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	if enabled then
+		button.Text = "ON"
+		button.BackgroundColor3 = Color3.fromRGB(50,200,50)
+	else
+		button.Text = "OFF"
+		button.BackgroundColor3 = Color3.fromRGB(200,50,50)
+	end
+end)
+
+plus.MouseButton1Click:Connect(function()
+	triggerDistance = triggerDistance + 2
+	label.Text = "Range: "..triggerDistance
+end)
+
+minus.MouseButton1Click:Connect(function()
+	triggerDistance = math.max(2, triggerDistance - 2)
+	label.Text = "Range: "..triggerDistance
+end)
+
+cdPlus.MouseButton1Click:Connect(function()
+	cooldown = cooldown + 0.5
+	cooldownLabel.Text = "CD: "..cooldown.."s"
+end)
+
+cdMinus.MouseButton1Click:Connect(function()
+	cooldown = math.max(0.1, cooldown - 0.5)
+	cooldownLabel.Text = "CD: "..cooldown.."s"
+end)
+
+close.MouseButton1Click:Connect(function()
+	running = false
+	gui:Destroy()
+end)
+
+--================ 機能 =================--
+
+local function getNearestPlayer()
+	local nearest = nil
+	local shortestDistance = triggerDistance
+
+	for _, other in pairs(Players:GetPlayers()) do
+		if other ~= player and other.Character and other.Character:FindFirstChild("HumanoidRootPart") then
+			local otherRoot = other.Character.HumanoidRootPart
+			local distance = (root.Position - otherRoot.Position).Magnitude
+
+			if distance < shortestDistance then
+				shortestDistance = distance
+				nearest = otherRoot
+			end
+		end
+	end
+	return nearest
+end
+
+while running do
+	task.wait(0.1)
+	if not enabled then continue end
+	if tick() - lastUsed < cooldown then continue end
+
+	local target = getNearestPlayer()
+	if target then
+		root.CFrame = target.CFrame * CFrame.new(0, 0, behindOffset)
+		lastUsed = tick()
+	end
+end
