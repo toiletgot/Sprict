@@ -1,0 +1,133 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
+
+local isCyclone = false
+local folder = nil
+
+-- --- 1. ドラッグ可能なUIの作成 ---
+local gui = Instance.new("ScreenGui", player.PlayerGui)
+gui.Name = "GhostGui"
+
+-- メインフレーム（これをドラッグする）
+local mainFrame = Instance.new("Frame", gui)
+mainFrame.Size = UDim2.new(0, 120, 0, 50)
+mainFrame.Position = UDim2.new(1, -150, 1, -100)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.Active = true
+mainFrame.Draggable = true -- 簡易的なドラッグ機能を有効化
+Instance.new("UICorner", mainFrame)
+
+-- ゴーストボタン
+local btn = Instance.new("TextButton", mainFrame)
+btn.Size = UDim2.new(0, 80, 0, 30)
+btn.Position = UDim2.new(0, 5, 0.5, -15)
+btn.Text = "ゴースト"
+btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", btn)
+
+-- ×ボタン（終了ボタン）
+local closeBtn = Instance.new("TextButton", mainFrame)
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -30, 0.5, -12.5)
+closeBtn.Text = "×"
+closeBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", closeBtn)
+
+-- --- 2. 全終了（リセット）関数 ---
+local function stopAll()
+	isCyclone = false
+	btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	hum.WalkSpeed = 16
+	
+	-- エフェクト削除
+	if folder then folder:Destroy() folder = nil end
+	-- 回転停止
+	if hrp:FindFirstChild("CycloneSpin") then hrp.CycloneSpin:Destroy() end
+	
+	print("すべてのエフェクトを終了しました")
+end
+
+-- --- 3. エフェクト生成関数 ---
+local function createEffects()
+	local f = Instance.new("Folder", char)
+	f.Name = "CycloneEffects"
+	
+	-- 羽パーティクル
+	local p = Instance.new("Part", f)
+	p.Size = Vector3.new(1,1,1)
+	p.Transparency = 1
+	p.CanCollide = false
+	local w = Instance.new("Weld", p)
+	w.Part0 = hrp; w.Part1 = p; w.C0 = CFrame.new(0, 1, 0.5)
+
+	local att = Instance.new("Attachment", p)
+	local emitter = Instance.new("ParticleEmitter", att)
+	emitter.Texture = "rbxassetid://243017145"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(0, 255, 255), Color3.fromRGB(0, 100, 255))
+	emitter.Size = NumberSequence.new(3, 0)
+	emitter.Rate = 200
+	emitter.Speed = NumberRange.new(10, 20)
+	emitter.SpreadAngle = Vector2.new(0, 360)
+	
+	-- 足元の輪
+	local circle = Instance.new("Part", f)
+	circle.Size = Vector3.new(12, 0.2, 12)
+	circle.Material = Enum.Material.ForceField
+	circle.Color = Color3.new(0, 0.5, 1)
+	circle.CanCollide = false
+	local cw = Instance.new("Weld", circle)
+	cw.Part0 = hrp; cw.Part1 = circle; cw.C0 = CFrame.new(0, -2.5, 0)
+
+	return f
+end
+
+-- --- 4. ボタン動作 ---
+
+-- ゴースト切り替え
+btn.MouseButton1Click:Connect(function()
+	isCyclone = not isCyclone
+	if isCyclone then
+		btn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+		folder = createEffects()
+		hum.WalkSpeed = 50
+	else
+		stopAll()
+	end
+end)
+
+-- ×ボタンで全終了してUIも消す（または非表示）
+closeBtn.MouseButton1Click:Connect(function()
+	stopAll()
+	gui:Destroy() -- UIごと消去する場合
+end)
+
+-- --- 5. 物理アップデート ---
+RunService.Heartbeat:Connect(function()
+	if not isCyclone then return end
+	
+	-- 回転
+	local av = hrp:FindFirstChild("CycloneSpin") or Instance.new("AngularVelocity", hrp)
+	av.Name = "CycloneSpin"
+	av.MaxTorque = 1e7
+	av.AngularVelocity = Vector3.new(0, 30, 0)
+	av.RelativeTo = Enum.ActuatorRelativeTo.Attachment0
+	if not av:FindFirstChild("Attachment") then Instance.new("Attachment", hrp) av.Attachment0 = hrp.Attachment end
+
+	-- 弾き飛ばし
+	local parts = workspace:GetPartBoundsInRadius(hrp.Position, 15)
+	for _, part in ipairs(parts) do
+		if part:IsA("BasePart") and not part.Anchored and not part:IsDescendantOf(char) then
+			part.AssemblyLinearVelocity = (part.Position - hrp.Position).Unit * 100 + Vector3.new(0, 50, 0)
+		end
+	end
+end)
