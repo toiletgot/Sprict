@@ -1,0 +1,81 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- 設定
+local sensitivity = 0.35
+local distance = 12
+local height = 2
+local yaw, pitch = 0, -10
+local enabled = false
+
+-- UI作成
+local gui = Instance.new("ScreenGui")
+gui.Name = "MinimalCamGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- ON/OFFボタンのみ作成
+local toggle = Instance.new("TextButton")
+toggle.Parent = gui
+toggle.Size = UDim2.new(0, 40, 0, 20) -- 最小サイズ
+toggle.Position = UDim2.new(0, 5, 1, -25) -- 画面左下の隅
+toggle.Text = "OFF"
+toggle.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+toggle.TextColor3 = Color3.new(1, 1, 1)
+toggle.TextSize = 10
+toggle.BorderSizePixel = 0
+toggle.ZIndex = 10
+
+--- 処理 ---
+
+-- ON/OFF切り替え
+toggle.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	toggle.Text = enabled and "ON" or "OFF"
+	toggle.BackgroundColor3 = enabled and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(100, 0, 0)
+	
+	if not enabled then
+		camera.CameraType = Enum.CameraType.Custom
+	else
+		-- ONにした瞬間に現在の向きをリセット（お好みで）
+		yaw, pitch = 0, -10
+	end
+end)
+
+-- タッチ操作
+UserInputService.InputChanged:Connect(function(input)
+	if enabled and input.UserInputType == Enum.UserInputType.Touch then
+		yaw -= input.Delta.X * sensitivity
+		pitch = math.clamp(pitch - input.Delta.Y * sensitivity, -80, 80)
+	end
+end)
+
+-- カメラ更新
+RunService.RenderStepped:Connect(function()
+	if not enabled then return end
+	
+	camera.CameraType = Enum.CameraType.Scriptable
+	
+	local character = player.Character
+	if not character then return end
+	
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
+	
+	local focus = root.Position + Vector3.new(0, height, 0)
+	local rotation = CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
+	local offset = rotation:VectorToWorldSpace(Vector3.new(0, 0, distance))
+
+	camera.CFrame = CFrame.new(focus + offset, focus)
+end)
+
+-- リスポーン対策
+player.CharacterAdded:Connect(function()
+	if enabled then
+		camera.CameraType = Enum.CameraType.Scriptable
+	end
+end)
