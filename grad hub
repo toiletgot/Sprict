@@ -1,0 +1,137 @@
+--[[
+    kiki hub - v6 修正版
+    ・tp grab：指定したXYZ座標へ真っ直ぐ吸引（回転なし）。
+    ・chaos：砂のようにバラバラに暴れさせる。
+    ・slow up/down：その場で、あるいは吸引されながらゆっくり上下移動。
+]]
+
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/BlizTBr/scripts/main/Orion%20X"))()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local grabEnabled = false
+local chaosEnabled = false
+local slowUpEnabled = false
+local slowDownEnabled = false
+local hoveringObjects = {}
+local grabRange = 1000 
+-- 初期値を 0 に設定（勝手に上がらないように）
+local posX, posY, posZ = 0, 0, 0 
+
+local function clearObjects()
+    for o in pairs(hoveringObjects) do
+        pcall(function()
+            if o and o.Parent then
+                if o:FindFirstChild("SyncForce") then o.SyncForce:Destroy() end
+                if o:FindFirstChild("SyncGyro") then o.SyncGyro:Destroy() end
+            end
+        end)
+    end
+    hoveringObjects = {}
+end
+
+local function registerPlayerPart(part)
+    if not part:IsA("BasePart") or part.Anchored then return end
+    local character = part.Parent
+    if not character:FindFirstChildOfClass("Humanoid") then
+        character = character.Parent
+        if not character or not character:FindFirstChildOfClass("Humanoid") then return end
+    end
+    if character == player.Character then return end
+    if hoveringObjects[part] then return end 
+    
+    hoveringObjects[part] = true
+    local bv = Instance.new("BodyVelocity")
+    bv.Name = "SyncForce"; bv.MaxForce = Vector3.new(1,1,1) * 1e7; bv.Parent = part
+    local bg = Instance.new("BodyGyro")
+    bg.Name = "SyncGyro"; bg.MaxTorque = Vector3.new(1,1,1) * 1e7; bg.P = 1000000; bg.Parent = part
+    pcall(function() part:SetNetworkOwner(player) end)
+end
+
+local Window = OrionLib:MakeWindow({ Name = "kiki hub", HidePremium = false, IntroText = "kiki hub" })
+local GrabTab = Window:MakeTab({ Name = "Grab", Icon = "rbxassetid://4483345998" })
+
+GrabTab:AddTextbox({ Name = "座標 X", Default = "0", Callback = function(V) posX = tonumber(V) or 0 end })
+GrabTab:AddTextbox({ Name = "座標 Y", Default = "0", Callback = function(V) posY = tonumber(V) or 0 end })
+GrabTab:AddTextbox({ Name = "座標 Z", Default = "0", Callback = function(V) posZ = tonumber(V) or 0 end })
+
+-- 現在地を取得するボタン（これを使うと便利です）
+GrabTab:AddButton({
+    Name = "現在地をターゲットにする",
+    Callback = function()
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local p = player.Character.HumanoidRootPart.Position
+            posX, posY, posZ = math.floor(p.X), math.floor(p.Y), math.floor(p.Z)
+        end
+    end
+})
+
+GrabTab:AddToggle({ Name = "tp grab (吸引)", Default = false, Callback = function(V) 
+    grabEnabled = V 
+    if not V and not chaosEnabled and not slowUpEnabled and not slowDownEnabled then clearObjects() end
+end })
+
+GrabTab:AddToggle({ Name = "chaos (暴れ)", Default = false, Callback = function(V) 
+    chaosEnabled = V 
+    if not V and not grabEnabled and not slowUpEnabled and not slowDownEnabled then clearObjects() end
+end })
+
+GrabTab:AddToggle({ Name = "slow up (ゆっくり上昇)", Default = false, Callback = function(V) 
+    slowUpEnabled = V 
+    if V then slowDownEnabled = false end -- 同時押し防止
+end })
+
+GrabTab:AddToggle({ Name = "slow down (ゆっくり下降)", Default = false, Callback = function(V) 
+    slowDownEnabled = V 
+    if V then slowUpEnabled = false end -- 同時押し防止
+end })
+
+RunService.Heartbeat:Connect(function()
+    if grabEnabled or chaosEnabled or slowUpEnabled or slowDownEnabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player and p.Character then
+                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                if hrp and (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude <= grabRange then
+                    for _, part in ipairs(p.Character:GetChildren()) do
+                        if part:IsA("BasePart") then registerPlayerPart(part) end
+                    end
+                end
+            end
+        end
+
+        for o in pairs(hoveringObjects) do
+            if o and o.Parent and o:FindFirstChild("SyncForce") then
+                local currentPos = o.Position
+                local targetVel = Vector3.new(0, 0, 0)
+                
+                -- 1. 吸引の計算 (ONの場合のみ)
+                if grabEnabled then
+                    local targetPos = Vector3.new(posX, posY, posZ)
+                    targetVel = (targetPos - currentPos) * 30
+                end
+                
+                -- 2. 上下移動の加算
+                if slowUpEnabled then
+                    targetVel = targetVel + Vector3.new(0, 8, 0)
+                elseif slowDownEnabled then
+                    targetVel = targetVel + Vector3.new(0, -8, 0)
+                end
+                
+                -- 3. カオス（暴れ）
+                if chaosEnabled then
+                    targetVel = targetVel + Vector3.new(math.random(-100, 100), math.random(-100, 100), math.random(-100, 100))
+                    o.SyncGyro.CFrame = CFrame.Angles(math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)), math.rad(math.random(-180, 180)))
+                else
+                    -- 通常時は直立固定
+                    o.SyncGyro.CFrame = CFrame.new(currentPos, currentPos + Vector3.new(0, 0, 1))
+                end
+
+                o.SyncForce.Velocity = targetVel
+                pcall(function() o:SetNetworkOwner(player) end)
+            end
+        end
+    end
+end)
+
+OrionLib:Init()
